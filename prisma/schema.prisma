@@ -1,0 +1,115 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  name          String?
+  role          UserRole
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  farmer        Farmer?
+  lender        Lender?
+  admin         Admin?
+}
+
+enum UserRole {
+  FARMER
+  LENDER
+  ADMIN
+}
+
+model Farmer {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  farmSize        Float?
+  location        String?
+  cropTypes       String[]
+  creditScore     Float?
+  loanApplications LoanApplication[]
+  transactions    Transaction[]
+}
+
+model Lender {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycVerified     Boolean   @default(false)
+  investments     Investment[]
+}
+
+model Admin {
+  id              String    @id @default(cuid())
+  userId          String    @unique
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  permissions     String[]
+}
+
+model LoanApplication {
+  id              String        @id @default(cuid())
+  farmerId        String
+  farmer          Farmer        @relation(fields: [farmerId], references: [id])
+  amount          Float
+  purpose         String
+  duration        Int           // In months
+  interestRate    Float?
+  status          LoanStatus    @default(PENDING)
+  creditScore     Float?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  investments     Investment[]
+}
+
+enum LoanStatus {
+  PENDING
+  APPROVED
+  FUNDED
+  REJECTED
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+}
+
+model Investment {
+  id                String          @id @default(cuid())
+  lenderId          String
+  lender            Lender          @relation(fields: [lenderId], references: [id])
+  loanApplicationId String
+  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id])
+  amount            Float
+  date              DateTime        @default(now())
+  status            InvestmentStatus @default(ACTIVE)
+}
+
+enum InvestmentStatus {
+  ACTIVE
+  COMPLETED
+  DEFAULTED
+}
+
+model Transaction {
+  id              String          @id @default(cuid())
+  farmerId        String
+  farmer          Farmer          @relation(fields: [farmerId], references: [id])
+  amount          Float
+  type            TransactionType
+  date            DateTime        @default(now())
+  description     String?
+}
+
+enum TransactionType {
+  LOAN_DISBURSEMENT
+  REPAYMENT
+  FEE
+}
