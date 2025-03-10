@@ -1,164 +1,174 @@
-"use client";
-import React from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import {
-  Home,
-  User,
-  CreditCard,
-  History,
-  BarChart2,
-  Users,
-  ShoppingBag,
-  Briefcase,
-  Settings,
-  LogOut,
-  HelpCircle,
-  AlertTriangle,
-} from "lucide-react";
+// Sidebar.tsx
 
-interface NavItem {
-  name: string;
-  href: string;
-  icon: string;
-}
+"use client";
+
+import Link from "next/link";
+import Image from "next/image";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect } from "react";
 
 interface SidebarProps {
-  navItems: NavItem[];
-  userType?: "farmer" | "lender" | "admin";
+  sidebarOpen: boolean;
+  setSidebarOpen: (open: boolean) => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ navItems, userType = "farmer" }) => {
+const Sidebar: React.FC<SidebarProps> = ({ sidebarOpen, setSidebarOpen }) => {
   const pathname = usePathname();
+  const router = useRouter();
 
-  // Map icon string to Lucide icon component
-  const getIcon = (iconName: string, active: boolean) => {
-    const className = active
-      ? "text-green-600"
-      : "text-gray-500 group-hover:text-gray-900";
-    const size = 20;
+  const navigation = [
+    {
+      name: "Dashboard",
+      href: "/lender",
+      icon: "M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6",
+    },
+    {
+      name: "marketplace",
+      href: "/lender/marketplace",
+      icon: "M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z",
+    },
+    {
+      name: "Portfolio",
+      href: "/lender/portfolio",
+      icon: "M12 6v6m0 0v6m0-6h6m-6 0H6",
+    },
 
-    switch (iconName) {
-      case "dashboard":
-      case "home":
-        return <Home size={size} className={className} />;
-      case "user":
-      case "profile":
-        return <User size={size} className={className} />;
-      case "loans":
-      case "credit":
-        return <CreditCard size={size} className={className} />;
-      case "transactions":
-      case "history":
-        return <History size={size} className={className} />;
-      case "stats":
-      case "analytics":
-        return <BarChart2 size={size} className={className} />;
-      case "users":
-        return <Users size={size} className={className} />;
-      case "marketplace":
-        return <ShoppingBag size={size} className={className} />;
-      case "portfolio":
-        return <Briefcase size={size} className={className} />;
-      case "settings":
-        return <Settings size={size} className={className} />;
-      case "help":
-        return <HelpCircle size={size} className={className} />;
-      case "risk":
-        return <AlertTriangle size={size} className={className} />;
-      default:
-        return <Home size={size} className={className} />;
+    {
+      name: "Profile",
+      href: "/lender/profile",
+      icon: "M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z",
+    },
+  ];
+
+  const isNavItemActive = (navItem: {
+    name: string;
+    href: string;
+    icon: string;
+  }) => {
+    if (navItem.href === "/lender") {
+      return pathname === "/lender";
+    } else if (navItem.href === "/lender/marketplace") {
+      return pathname === "/lender/marketplace";
     }
+    return pathname.startsWith(navItem.href);
   };
 
-  // Get brand color and logo based on user type
-  const getBrandDetails = () => {
-    switch (userType) {
-      case "farmer":
-        return { color: "bg-green-600", name: "Farmer Portal" };
-      case "lender":
-        return { color: "bg-blue-600", name: "Lender Portal" };
-      case "admin":
-        return { color: "bg-purple-600", name: "Admin Portal" };
-      default:
-        return { color: "bg-gray-800", name: "Agri-Finance Platform" };
-    }
+  const handleLogout = () => {
+    localStorage.removeItem("authToken");
+    sessionStorage.clear();
+    router.push("/login");
   };
 
-  const brand = getBrandDetails();
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (!sidebarOpen) return;
+
+      const sidebarElement = document.getElementById("sidebar");
+      if (sidebarElement && !sidebarElement.contains(event.target as Node)) {
+        setSidebarOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [sidebarOpen, setSidebarOpen]);
 
   return (
-    <div className="hidden md:flex md:w-64 md:flex-col md:fixed md:inset-y-0">
-      <div className="flex-1 flex flex-col min-h-0 bg-white border-r border-gray-200">
-        {/* Sidebar header / logo area */}
-        <div
-          className={`flex items-center h-16 flex-shrink-0 px-4 ${brand.color}`}
-        >
-          <Link href="/" className="flex items-center">
-            <img
-              className="h-8 w-auto"
-              src="/logo.svg"
-              alt="Agri-Finance Platform"
-            />
-            <span className="ml-2 text-white font-medium text-lg">
-              {brand.name}
-            </span>
-          </Link>
-        </div>
+    <div
+      id="sidebar"
+      className={`fixed inset-y-0 left-0 flex flex-col bg-white border-r border-gray-200 w-64 lg:w-56 z-50 transform transition-transform ${
+        sidebarOpen ? "translate-x-0" : "-translate-x-full"
+      } md:translate-x-0 md:static md:z-auto`}
+    >
+      <div className="flex items-center h-16 px-4bg-white border-r border-gray-200 flex-shrink-0">
+        <Link href="/" className="flex items-center" aria-label="Home">
+          <Image
+            src="/logo.svg"
+            alt="AgriFinance Logo"
+            width={40}
+            height={40}
+            className="transition-transform hover:scale-105"
+          />
+          <span className="ml-2 text-xl font-bold text-gray-600">
+            AgriFinance
+          </span>
+        </Link>
+      </div>
 
-        {/* Navigation links */}
-        <div className="flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-          <nav className="mt-5 flex-1 px-2 space-y-1">
-            {navItems.map((item) => {
-              const isActive = pathname === item.href;
-              return (
-                <Link
-                  key={item.name}
-                  href={item.href}
-                  className={`group flex items-center px-2 py-2 text-sm font-medium rounded-md ${
-                    isActive
+      <div className="flex-1 overflow-y-auto pt-5 pb-4">
+        <nav className="px-2 space-y-1">
+          {navigation.map((item) => {
+            const active = isNavItemActive(item);
+            return (
+              <Link
+                key={item.name}
+                href={item.href}
+                className={`group flex items-center px-2 py-2 text-base font-medium rounded-md transition-colors ${
+                  active
+                    ? "bg-gray-100 text-green-600"
+                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                }`}
+                aria-current={active ? "page" : undefined}
+              >
+                <svg
+                  className={`mr-3 h-6 w-6 flex-shrink-0 ${
+                    active
                       ? "bg-gray-100 text-green-600"
                       : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                   }`}
+                  xmlns="http://www.w3.org/2000/svg"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                  aria-hidden="true"
                 >
-                  {getIcon(item.icon, isActive)}
-                  <span className="ml-3">{item.name}</span>
-                </Link>
-              );
-            })}
-          </nav>
-        </div>
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d={item.icon}
+                  />
+                </svg>
+                {item.name}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
 
-        {/* Bottom section with help and logout */}
-        <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-          <Link href="/help" className="flex-shrink-0 w-full group block">
-            <div className="flex items-center">
-              <div>
-                <HelpCircle className="inline-block h-5 w-5 text-gray-500 group-hover:text-gray-900" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                  Help Center
-                </p>
-              </div>
-            </div>
-          </Link>
+      <div className="p-4 border-t border-gray-200">
+        <div className="flex items-center">
+          <div className="h-9 w-9 rounded-full bg-green-600 flex items-center justify-center text-white font-medium">
+            JF
+          </div>
+          <div className="ml-3">
+            <p className="text-sm font-medium text-gray-600">John Farmer</p>
+            <p className="text-xs text-gray-600">Premium Account</p>
+          </div>
         </div>
-
-        <div className="flex-shrink-0 flex border-t border-gray-200 p-4">
-          <button className="flex-shrink-0 w-full group block">
-            <div className="flex items-center">
-              <div>
-                <LogOut className="inline-block h-5 w-5 text-gray-500 group-hover:text-gray-900" />
-              </div>
-              <div className="ml-3">
-                <p className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                  Sign Out
-                </p>
-              </div>
-            </div>
-          </button>
-        </div>
+        <button
+          className="mt-3 w-full flex items-center justify-center py-2 px-4 rounded-md text-sm font-medium text-white bg-green-700 hover:bg-green-600 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500"
+          onClick={handleLogout}
+          aria-label="Sign out"
+        >
+          <svg
+            className="h-5 w-5 mr-2"
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke="currentColor"
+          >
+            <path
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              strokeWidth={2}
+              d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+            />
+          </svg>
+          Sign out
+        </button>
       </div>
     </div>
   );

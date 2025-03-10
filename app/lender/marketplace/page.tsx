@@ -324,7 +324,7 @@ export default function LenderMarketplace() {
           </p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-1 md:grid-cols-1 lg:grid-cols-3 xl:grid-cols-3 gap-6">
           {filteredLoans.map((loan) => {
             const riskLevel = calculateRiskLevel(loan.creditScore);
             const estimatedRoi = calculateEstimatedRoi(
@@ -335,7 +335,7 @@ export default function LenderMarketplace() {
 
             return (
               <Card key={loan.id} className="overflow-hidden">
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="text-lg font-semibold">
@@ -350,7 +350,7 @@ export default function LenderMarketplace() {
                     )}
                   </div>
 
-                  <div className="grid grid-cols-2 gap-4 mb-4">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4 mb-2 sm:mb-4">
                     <div>
                       <p className="text-sm text-gray-500">Amount</p>
                       <p className="font-semibold">
@@ -377,12 +377,12 @@ export default function LenderMarketplace() {
                     </div>
                   </div>
 
-                  <div className="mb-4">
+                  <div className="mb-2 sm:mb-4">
                     <p className="text-sm text-gray-500">Crop Types</p>
                     <p className="font-medium">{loan.cropTypes.join(", ")}</p>
                   </div>
 
-                  <div className="mb-4">
+                  <div className="mb-2 sm:mb-4">
                     <p className="text-sm text-gray-500">Risk Level</p>
                     <p
                       className={`font-medium ${
@@ -397,7 +397,7 @@ export default function LenderMarketplace() {
                     </p>
                   </div>
 
-                  <div className="mb-4">
+                  <div className="mb-2 sm:mb-4">
                     <p className="text-sm text-gray-500">Application Date</p>
                     <p className="font-medium">
                       {new Date(loan.appliedAt).toLocaleDateString()}
