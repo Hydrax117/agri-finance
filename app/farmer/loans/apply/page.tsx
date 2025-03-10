@@ -21,11 +21,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/CheckBox";
 import { Spinner } from "@/components/ui/spinner";
 import { Stepper } from "@/components/ui/stepper";
+
 // Form components
 import { CropSelectionField } from "@/components/forms/CropSelectionField";
 import { LandDetailsField } from "@/components/forms/LandDetailsField";
 import { FileUpload } from "@/components/forms/FileUplod";
-
 export default function LoanApplicationPage() {
   const router = useRouter();
   const { submitLoanApplication, isSubmitting } = useLoan();
