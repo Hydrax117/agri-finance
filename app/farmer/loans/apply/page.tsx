@@ -1,433 +1,426 @@
 // src/app/farmer/loans/apply/page.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useLoan } from "@/hooks/useLoan";
-import {
-  LoanPurpose,
-  LoanDuration,
-  CropType,
-  LandUnit,
-  LandOwnership,
-} from "@/types/loan";
+import { LoanPurpose, LoanStatus } from "@/types/loan";
 
-// UI Components
-import { Button } from "@/components/ui/Button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Select } from "@/components/ui/Select";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/CheckBox";
-import { Spinner } from "@/components/ui/spinner";
-import { Stepper } from "@/components/ui/stepper";
-
-// Form components
-import { CropSelectionField } from "@/components/forms/CropSelectionField";
-import { LandDetailsField } from "@/components/forms/LandDetailsField";
-import { FileUpload } from "@/components/forms/FileUplod";
 export default function LoanApplicationPage() {
   const router = useRouter();
-  const { submitLoanApplication, isSubmitting } = useLoan();
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
 
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    loanAmount: "",
-    purpose: "" as LoanPurpose,
-    duration: "" as LoanDuration,
-    cropType: [] as CropType[],
-    landSize: "",
-    landUnit: "acres" as LandUnit,
-    landLocation: "",
-    landOwnership: "owned" as LandOwnership,
-    farmingExperience: "",
-    previousLoans: false,
-    previousLoanDetails: "",
-    expectedYield: "",
-    documents: {
-      identityProof: null as File | null,
-      landRecord: null as File | null,
-      previousHarvestProof: null as File | null,
-      bankStatement: null as File | null,
-    },
-    additionalInfo: "",
-    agreeToTerms: false,
+  const [loanData, setLoanData] = useState({
+    amount: 0,
+    term: 6, // Default term in months
+    purpose: LoanPurpose.SEEDS,
+    description: "",
+    collateral: "",
+    expectedYield: 0,
+    cropType: "",
+    interestRate: 0, // Annual interest rate
   });
 
-  const handleInputChange = (
-    field: string,
-    value: string | number | boolean | CropType[]
-  ) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
+  // Base interest rate and risk factors
+  const baseInterestRate = 8.5; // 8.5% base rate
+  const purposeRiskFactors: Record<LoanPurpose, number> = {
+    [LoanPurpose.SEEDS]: 0.5,
+    [LoanPurpose.FERTILIZER]: 0.75,
+    [LoanPurpose.EQUIPMENT]: 1.25,
+    [LoanPurpose.IRRIGATION]: 1.0,
+    [LoanPurpose.LABOR]: 1.5,
+    [LoanPurpose.LAND_LEASE]: 2.0,
+    [LoanPurpose.STORAGE]: 1.0,
+    [LoanPurpose.OTHER]: 2.5,
   };
 
-  const handleDocumentUpload = (docType: string, file: File | null) => {
-    setFormData((prev) => ({
-      ...prev,
-      documents: { ...prev.documents, [docType]: file },
+  // Calculate interest rate based on loan parameters
+  useEffect(() => {
+    // Start with base rate
+    let calculatedRate = baseInterestRate;
+
+    // Adjust based on loan purpose
+    calculatedRate += purposeRiskFactors[loanData.purpose];
+
+    // Adjust based on loan amount (higher amounts = slightly lower rates)
+    if (loanData.amount > 100000) {
+      calculatedRate -= 0.5;
+    } else if (loanData.amount < 10000) {
+      calculatedRate += 1.0;
+    }
+
+    // Adjust based on term (longer terms = higher rates)
+    if (loanData.term > 24) {
+      calculatedRate += 1.5;
+    } else if (loanData.term > 12) {
+      calculatedRate += 0.75;
+    }
+
+    // Add collateral benefit (presence of collateral reduces rate)
+    if (loanData.collateral.trim().length > 0) {
+      calculatedRate -= 1.0;
+    }
+
+    // Ensure rate doesn't go below minimum
+    calculatedRate = Math.max(calculatedRate, 6.0);
+
+    // Update state with calculated rate (rounded to 2 decimal places)
+    setLoanData((prevData) => ({
+      ...prevData,
+      interestRate: parseFloat(calculatedRate.toFixed(2)),
     }));
+  }, [loanData.amount, loanData.term, loanData.purpose, loanData.collateral]);
+
+  const handleChange = (
+    e: React.ChangeEvent<
+      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
+    >
+  ) => {
+    const { name, value } = e.target;
+    setLoanData({
+      ...loanData,
+      [name]:
+        name === "amount" || name === "term" || name === "expectedYield"
+          ? parseFloat(value) || 0
+          : value,
+    });
+  };
+
+  // Calculate monthly payment
+  const calculateMonthlyPayment = (): number => {
+    const principal = loanData.amount;
+    const monthlyRate = loanData.interestRate / 100 / 12;
+    const payments = loanData.term;
+
+    if (principal <= 0 || payments <= 0 || monthlyRate <= 0) return 0;
+
+    const monthlyPayment =
+      (principal * monthlyRate * Math.pow(1 + monthlyRate, payments)) /
+      (Math.pow(1 + monthlyRate, payments) - 1);
+
+    return parseFloat(monthlyPayment.toFixed(2));
+  };
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+
+    if (loanData.amount <= 0) errors.amount = "Amount must be greater than 0";
+    if (loanData.term < 1) errors.term = "Term must be at least 1 month";
+    if (!loanData.description) errors.description = "Description is required";
+    if (!loanData.cropType) errors.cropType = "Crop type is required";
+    if (loanData.expectedYield <= 0)
+      errors.expectedYield = "Expected yield must be greater than 0";
+
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!validateForm()) return;
+
+    setIsSubmitting(true);
+
     try {
-      const result = await submitLoanApplication({
-        ...formData,
-        loanAmount: Number(formData.loanAmount),
+      // Submit the loan application
+      const response = await fetch("/api/farmer/loans/apply", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...loanData,
+          status: LoanStatus.PENDING,
+        }),
       });
-      router.push(`/farmer/loans/${result.loanId}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to submit loan application");
+      }
+
+      const data = await response.json();
+
+      // Redirect to the loan details page
+      router.push(`/farmer/loans/${data.id}`);
     } catch (error) {
       console.error("Error submitting loan application:", error);
-      // Handle error (show notification, etc.)
+      setFormErrors({
+        form: "Failed to submit loan application. Please try again later.",
+      });
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const validateCurrentStep = () => {
-    if (currentStep === 1) {
-      return formData.loanAmount && formData.purpose && formData.duration;
-    } else if (currentStep === 2) {
-      return (
-        formData.cropType.length > 0 &&
-        formData.landSize &&
-        formData.landLocation
-      );
-    } else if (currentStep === 3) {
-      return formData.documents.identityProof && formData.documents.landRecord;
-    }
-    return true;
-  };
-
-  const nextStep = () => {
-    if (validateCurrentStep()) {
-      setCurrentStep((prev) => Math.min(prev + 1, 4));
-    }
-  };
-
-  const prevStep = () => {
-    setCurrentStep((prev) => Math.max(prev - 1, 1));
-  };
+  // Calculate total repayment amount
+  const totalRepayment = calculateMonthlyPayment() * loanData.term;
 
   return (
     <div className="container mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-6">Apply for Agricultural Loan</h1>
+      <h1 className="text-2xl font-bold mb-6">Apply for a Loan</h1>
 
-      <Stepper
-        steps={[
-          "Loan Details",
-          "Farm Information",
-          "Documents",
-          "Review & Submit",
-        ]}
-        currentStep={currentStep}
-      />
+      {formErrors.form && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+          {formErrors.form}
+        </div>
+      )}
 
-      <Card className="mt-6 p-6">
-        <form onSubmit={handleSubmit}>
-          {/* Step 1: Loan Details */}
-          {currentStep === 1 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold mb-4">Loan Details</h2>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Loan Amount (₹)*
-                </label>
-                <Input
-                  type="number"
-                  value={formData.loanAmount}
-                  onChange={(e) =>
-                    handleInputChange("loanAmount", e.target.value)
-                  }
-                  placeholder="Enter amount in ₹"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">Loan Purpose*</label>
-                <Select
-                  value={formData.purpose}
-                  onChange={(e) => handleInputChange("purpose", e.target.value)}
-                  required
-                >
-                  <option value="">Select purpose</option>
-                  <option value="seeds">Seeds & Fertilizers</option>
-                  <option value="equipment">Farm Equipment</option>
-                  <option value="irrigation">Irrigation System</option>
-                  <option value="labor">Labor Costs</option>
-                  <option value="storage">Storage Infrastructure</option>
-                  <option value="other">Other</option>
-                </Select>
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">Loan Duration*</label>
-                <Select
-                  value={formData.duration}
-                  onChange={(e) =>
-                    handleInputChange("duration", e.target.value)
-                  }
-                  required
-                >
-                  <option value="">Select duration</option>
-                  <option value="3months">3 months</option>
-                  <option value="6months">6 months</option>
-                  <option value="1year">1 year</option>
-                  <option value="2years">2 years</option>
-                  <option value="5years">5 years</option>
-                </Select>
-              </div>
-            </div>
-          )}
-
-          {/* Step 2: Farm Information */}
-          {currentStep === 2 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold mb-4">Farm Information</h2>
-
-              <CropSelectionField
-                selectedCrops={formData.cropType}
-                onChange={(crops) => handleInputChange("cropType", crops)}
-              />
-
-              <LandDetailsField
-                landSize={formData.landSize}
-                landUnit={formData.landUnit}
-                landLocation={formData.landLocation}
-                landOwnership={formData.landOwnership}
-                onChange={(field, value) => handleInputChange(field, value)}
-              />
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Farming Experience (years)
-                </label>
-                <Input
-                  type="number"
-                  value={formData.farmingExperience}
-                  onChange={(e) =>
-                    handleInputChange("farmingExperience", e.target.value)
-                  }
-                  placeholder="Years of farming experience"
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Expected Yield (quintals)
-                </label>
-                <Input
-                  type="number"
-                  value={formData.expectedYield}
-                  onChange={(e) =>
-                    handleInputChange("expectedYield", e.target.value)
-                  }
-                  placeholder="Expected harvest yield"
-                />
-              </div>
-
-              <div className="flex items-center">
-                <Checkbox
-                  checked={formData.previousLoans}
-                  onChange={(e) =>
-                    handleInputChange("previousLoans", e.target.checked)
-                  }
-                  id="previousLoans"
-                />
-                <label htmlFor="previousLoans" className="ml-2">
-                  Have you taken agricultural loans before?
-                </label>
-              </div>
-
-              {formData.previousLoans && (
-                <div>
-                  <label className="block mb-2 font-medium">
-                    Previous Loan Details
-                  </label>
-                  <Textarea
-                    value={formData.previousLoanDetails}
-                    onChange={(e) =>
-                      handleInputChange("previousLoanDetails", e.target.value)
-                    }
-                    placeholder="Provide details about previous loans and repayment history"
-                    rows={3}
-                  />
-                </div>
-              )}
-            </div>
-          )}
-
-          {/* Step 3: Document Upload */}
-          {currentStep === 3 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold mb-4">Required Documents</h2>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Identity Proof (Aadhaar/PAN)*
-                </label>
-                <FileUpload
-                  onFileSelect={(file) =>
-                    handleDocumentUpload("identityProof", file)
-                  }
-                  acceptedFileTypes=".pdf,.jpg,.jpeg,.png"
-                  currentFile={formData.documents.identityProof}
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Land Ownership Record*
-                </label>
-                <FileUpload
-                  onFileSelect={(file) =>
-                    handleDocumentUpload("landRecord", file)
-                  }
-                  acceptedFileTypes=".pdf,.jpg,.jpeg,.png"
-                  currentFile={formData.documents.landRecord}
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Previous Harvest Proof (optional)
-                </label>
-                <FileUpload
-                  onFileSelect={(file) =>
-                    handleDocumentUpload("previousHarvestProof", file)
-                  }
-                  acceptedFileTypes=".pdf,.jpg,.jpeg,.png"
-                  currentFile={formData.documents.previousHarvestProof}
-                />
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Bank Statement (last 6 months, optional)
-                </label>
-                <FileUpload
-                  onFileSelect={(file) =>
-                    handleDocumentUpload("bankStatement", file)
-                  }
-                  acceptedFileTypes=".pdf"
-                  currentFile={formData.documents.bankStatement}
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 4: Review & Submit */}
-          {currentStep === 4 && (
-            <div className="space-y-4">
-              <h2 className="text-xl font-semibold mb-4">Review & Submit</h2>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">Loan Details</h3>
-                <p>Amount: ₹{formData.loanAmount}</p>
-                <p>Purpose: {formData.purpose}</p>
-                <p>Duration: {formData.duration}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">Farm Information</h3>
-                <p>Crops: {formData.cropType.join(", ")}</p>
-                <p>
-                  Land: {formData.landSize} {formData.landUnit} (
-                  {formData.landOwnership})
-                </p>
-                <p>Location: {formData.landLocation}</p>
-              </div>
-
-              <div className="bg-gray-50 p-4 rounded-lg">
-                <h3 className="font-medium mb-2">Documents Uploaded</h3>
-                <p>
-                  Identity Proof:{" "}
-                  {formData.documents.identityProof?.name || "Not uploaded"}
-                </p>
-                <p>
-                  Land Record:{" "}
-                  {formData.documents.landRecord?.name || "Not uploaded"}
-                </p>
-                <p>
-                  Harvest Proof:{" "}
-                  {formData.documents.previousHarvestProof?.name ||
-                    "Not uploaded"}
-                </p>
-                <p>
-                  Bank Statement:{" "}
-                  {formData.documents.bankStatement?.name || "Not uploaded"}
-                </p>
-              </div>
-
-              <div>
-                <label className="block mb-2 font-medium">
-                  Additional Information
-                </label>
-                <Textarea
-                  value={formData.additionalInfo}
-                  onChange={(e) =>
-                    handleInputChange("additionalInfo", e.target.value)
-                  }
-                  placeholder="Any other information you'd like to share with potential lenders"
-                  rows={3}
-                />
-              </div>
-
-              <div className="flex items-center">
-                <Checkbox
-                  checked={formData.agreeToTerms}
-                  onChange={(e) =>
-                    handleInputChange("agreeToTerms", e.target.checked)
-                  }
-                  id="agreeToTerms"
-                  required
-                />
-                <label htmlFor="agreeToTerms" className="ml-2">
-                  I confirm that all information provided is accurate and agree
-                  to the terms and conditions*
-                </label>
-              </div>
-            </div>
-          )}
-
-          {/* Navigation Buttons */}
-          <div className="flex justify-between mt-8">
-            {currentStep > 1 && (
-              <Button type="button" variant="outline" onClick={prevStep}>
-                Previous
-              </Button>
-            )}
-
-            {currentStep < 4 && (
-              <Button
-                type="button"
-                onClick={nextStep}
-                disabled={!validateCurrentStep()}
-                className="ml-auto"
-              >
-                Next
-              </Button>
-            )}
-
-            {currentStep === 4 && (
-              <Button
-                type="submit"
-                disabled={isSubmitting || !formData.agreeToTerms}
-                className="ml-auto"
-              >
-                {isSubmitting ? (
-                  <>
-                    <Spinner size="sm" /> Submitting...
-                  </>
-                ) : (
-                  "Submit Application"
-                )}
-              </Button>
+      <form
+        onSubmit={handleSubmit}
+        className="bg-white shadow-md rounded-lg p-6"
+      >
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Loan Amount */}
+          <div>
+            <label className="block text-gray-700 mb-2" htmlFor="amount">
+              Loan Amount (₹)
+            </label>
+            <input
+              type="number"
+              id="amount"
+              name="amount"
+              value={loanData.amount}
+              onChange={handleChange}
+              className={`w-full p-2 border rounded ${
+                formErrors.amount ? "border-red-500" : "border-gray-300"
+              }`}
+              min="0"
+              step="1000"
+            />
+            {formErrors.amount && (
+              <p className="text-red-500 text-sm mt-1">{formErrors.amount}</p>
             )}
           </div>
-        </form>
-      </Card>
+
+          {/* Loan Term */}
+          <div>
+            <label className="block text-gray-700 mb-2" htmlFor="term">
+              Loan Term (months)
+            </label>
+            <input
+              type="number"
+              id="term"
+              name="term"
+              value={loanData.term}
+              onChange={handleChange}
+              className={`w-full p-2 border rounded ${
+                formErrors.term ? "border-red-500" : "border-gray-300"
+              }`}
+              min="1"
+              max="60"
+            />
+            {formErrors.term && (
+              <p className="text-red-500 text-sm mt-1">{formErrors.term}</p>
+            )}
+          </div>
+
+          {/* Loan Purpose */}
+          <div>
+            <label className="block text-gray-700 mb-2" htmlFor="purpose">
+              Loan Purpose
+            </label>
+            <select
+              id="purpose"
+              name="purpose"
+              value={loanData.purpose}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded"
+            >
+              {Object.values(LoanPurpose).map((purpose) => (
+                <option key={purpose} value={purpose}>
+                  {purpose.replace(/_/g, " ")}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Crop Type */}
+          <div>
+            <label className="block text-gray-700 mb-2" htmlFor="cropType">
+              Crop Type
+            </label>
+            <input
+              type="text"
+              id="cropType"
+              name="cropType"
+              value={loanData.cropType}
+              onChange={handleChange}
+              className={`w-full p-2 border rounded ${
+                formErrors.cropType ? "border-red-500" : "border-gray-300"
+              }`}
+              placeholder="e.g., Rice, Wheat, Cotton"
+            />
+            {formErrors.cropType && (
+              <p className="text-red-500 text-sm mt-1">{formErrors.cropType}</p>
+            )}
+          </div>
+
+          {/* Expected Yield */}
+          <div>
+            <label className="block text-gray-700 mb-2" htmlFor="expectedYield">
+              Expected Yield (tonnes)
+            </label>
+            <input
+              type="number"
+              id="expectedYield"
+              name="expectedYield"
+              value={loanData.expectedYield}
+              onChange={handleChange}
+              className={`w-full p-2 border rounded ${
+                formErrors.expectedYield ? "border-red-500" : "border-gray-300"
+              }`}
+              min="0"
+              step="0.1"
+            />
+            {formErrors.expectedYield && (
+              <p className="text-red-500 text-sm mt-1">
+                {formErrors.expectedYield}
+              </p>
+            )}
+          </div>
+
+          {/* Collateral */}
+          <div>
+            <label className="block text-gray-700 mb-2" htmlFor="collateral">
+              Collateral (optional)
+            </label>
+            <input
+              type="text"
+              id="collateral"
+              name="collateral"
+              value={loanData.collateral}
+              onChange={handleChange}
+              className="w-full p-2 border border-gray-300 rounded"
+              placeholder="e.g., Land deed, Equipment"
+            />
+          </div>
+        </div>
+
+        {/* Interest Rate Display */}
+        <div className="mt-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+          <h3 className="text-lg font-medium mb-3">Loan Terms</h3>
+
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="bg-white p-4 rounded shadow-sm">
+              <p className="text-gray-500 text-sm">Annual Interest Rate</p>
+              <p className="text-2xl font-bold text-blue-600">
+                {loanData.interestRate}%
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                Based on loan parameters and risk assessment
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded shadow-sm">
+              <p className="text-gray-500 text-sm">Monthly Payment</p>
+              <p className="text-2xl font-bold text-blue-600">
+                ₹{calculateMonthlyPayment().toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">
+                For {loanData.term} months
+              </p>
+            </div>
+
+            <div className="bg-white p-4 rounded shadow-sm">
+              <p className="text-gray-500 text-sm">Total Repayment</p>
+              <p className="text-2xl font-bold text-blue-600">
+                ₹{totalRepayment.toLocaleString()}
+              </p>
+              <p className="text-xs text-gray-500 mt-1">Principal + Interest</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-600 mt-4">
+            <strong>Note:</strong> The interest rate is calculated automatically
+            based on various factors including loan amount, term, purpose, and
+            collateral. Adding collateral can help reduce your interest rate.
+          </p>
+        </div>
+
+        {/* Loan Description */}
+        <div className="mt-6">
+          <label className="block text-gray-700 mb-2" htmlFor="description">
+            Loan Description
+          </label>
+          <textarea
+            id="description"
+            name="description"
+            value={loanData.description}
+            onChange={handleChange}
+            className={`w-full p-2 border rounded ${
+              formErrors.description ? "border-red-500" : "border-gray-300"
+            }`}
+            rows={4}
+            placeholder="Describe how you plan to use the loan and your repayment strategy..."
+          />
+          {formErrors.description && (
+            <p className="text-red-500 text-sm mt-1">
+              {formErrors.description}
+            </p>
+          )}
+        </div>
+
+        {/* Document Upload Section */}
+        <div className="mt-6">
+          <h3 className="text-lg font-medium mb-3">Supporting Documents</h3>
+          <p className="text-gray-600 mb-4">
+            Please upload relevant documents to support your loan application.
+          </p>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="border border-dashed border-gray-300 rounded p-4 text-center">
+              <p className="text-gray-600 mb-2">Land Ownership Proof</p>
+              <button
+                type="button"
+                className="bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100"
+              >
+                Upload Document
+              </button>
+            </div>
+
+            <div className="border border-dashed border-gray-300 rounded p-4 text-center">
+              <p className="text-gray-600 mb-2">Crop Plan</p>
+              <button
+                type="button"
+                className="bg-blue-50 text-blue-600 px-4 py-2 rounded hover:bg-blue-100"
+              >
+                Upload Document
+              </button>
+            </div>
+          </div>
+
+          <p className="text-gray-500 text-sm mt-2">
+            Supported file types: PDF, JPG, PNG (Max size: 5MB)
+          </p>
+        </div>
+
+        {/* Terms and Conditions */}
+        <div className="mt-6">
+          <label className="flex items-center">
+            <input
+              type="checkbox"
+              className="form-checkbox h-5 w-5 text-blue-600"
+              required
+            />
+            <span className="ml-2 text-gray-700">
+              I agree to the terms and conditions and authorize the platform to
+              verify my information and credit history.
+            </span>
+          </label>
+        </div>
+
+        {/* Submit Button */}
+        <div className="mt-8">
+          <button
+            type="submit"
+            className="bg-green-600 text-white py-3 px-6 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500"
+            disabled={isSubmitting}
+          >
+            {isSubmitting ? "Submitting..." : "Submit Application"}
+          </button>
+        </div>
+      </form>
     </div>
   );
 }

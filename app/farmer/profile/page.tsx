@@ -5,13 +5,13 @@ import { useState, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/input";
-import { FarmerProfile } from "@/types/user";
+import { Farmer } from "@/types/user";
 
 export default function FarmerProfilePage() {
-  const [profile, setProfile] = useState<FarmerProfile | null>(null);
+  const [profile, setProfile] = useState<Farmer | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
-  const [formData, setFormData] = useState<FarmerProfile | null>(null);
+  const [formData, setFormData] = useState<Farmer | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState({ text: "", type: "" });
 
@@ -47,8 +47,7 @@ export default function FarmerProfilePage() {
     setFormData((prev) => {
       if (!prev) return null;
 
-      const currentValues =
-        (prev[name as keyof FarmerProfile] as string[]) || [];
+      const currentValues = (prev[name as keyof Farmer] as string[]) || [];
 
       if (Array.isArray(currentValues)) {
         // If value already exists, remove it; otherwise, add it
@@ -239,28 +238,17 @@ export default function FarmerProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
-                      First Name
+                      Full Name
                     </label>
                     <Input
                       type="text"
                       name="firstName"
-                      value={formData?.firstName || ""}
+                      value={formData?.name || ""}
                       onChange={handleInputChange}
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Last Name
-                    </label>
-                    <Input
-                      type="text"
-                      name="lastName"
-                      value={formData?.lastName || ""}
-                      onChange={handleInputChange}
-                      required
-                    />
-                  </div>
+
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Email
@@ -293,12 +281,12 @@ export default function FarmerProfilePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div className="md:col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">
-                        Address
+                        Farm Location
                       </label>
                       <Input
                         type="text"
-                        name="address"
-                        value={formData?.address || ""}
+                        name="farmLocation"
+                        value={formData?.farmLocation || ""}
                         onChange={handleInputChange}
                       />
                     </div>
@@ -309,7 +297,7 @@ export default function FarmerProfilePage() {
                       <Input
                         type="text"
                         name="city"
-                        value={formData?.city || ""}
+                        value={formData?.farmLocation || ""}
                         onChange={handleInputChange}
                       />
                     </div>
@@ -512,16 +500,11 @@ export default function FarmerProfilePage() {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
                   <div>
                     <h3 className="text-sm font-semibold text-gray-500">
-                      First Name
+                      Full Name
                     </h3>
-                    <p>{profile?.firstName || "N/A"}</p>
+                    <p>{profile?.name || "N/A"}</p>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-semibold text-gray-500">
-                      Last Name
-                    </h3>
-                    <p>{profile?.lastName || "N/A"}</p>
-                  </div>
+
                   <div>
                     <h3 className="text-sm font-semibold text-gray-500">
                       Email
@@ -545,7 +528,7 @@ export default function FarmerProfilePage() {
                       <h3 className="text-sm font-semibold text-gray-500">
                         Address
                       </h3>
-                      <p>{profile?.address || "N/A"}</p>
+                      <p>{profile?.farmLocation || "N/A"}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500">
@@ -577,7 +560,7 @@ export default function FarmerProfilePage() {
                       <h3 className="text-sm font-semibold text-gray-500">
                         Farm Name
                       </h3>
-                      <p>{profile?.farmName || "N/A"}</p>
+                      <p>{profile?.farmLocation || "N/A"}</p>
                     </div>
                     <div>
                       <h3 className="text-sm font-semibold text-gray-500">

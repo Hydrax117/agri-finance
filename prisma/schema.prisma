@@ -23,6 +23,12 @@ enum KYCStatus {
   VERIFIED
   REJECTED
 }
+enum FARMTYPE {
+  CROP
+ POULTRY
+ FISH
+ HYDROPHONIC
+}
 
 model User {
   id            String        @id @default(uuid())
@@ -39,7 +45,10 @@ model User {
   // Farmer specific fields
   farmSize              Float?
   farmLocation          String?
+  state                 String?
+  zipcode               String?
   crops                 String[]
+  farmType              FARMTYPE
   farmingExperience     Int?
   creditScore           Float?
   lastCreditScoreUpdate DateTime?
