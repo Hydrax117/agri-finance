@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { LoanApplicationData } from "@/types/loan";
+import { LoanApplication } from "@/types/loan";
 
 interface LoanSubmissionResult {
   success: boolean;
@@ -17,7 +17,7 @@ export function useLoan() {
    * @returns Promise with the submission result
    */
   const submitLoanApplication = async (
-    formData: LoanApplicationData
+    formData: LoanApplication
   ): Promise<LoanSubmissionResult> => {
     setIsSubmitting(true);
     setError(null);
@@ -34,7 +34,7 @@ export function useLoan() {
       });
 
       // Add cropType as a JSON string
-      submissionData.append("cropType", JSON.stringify(formData.cropType));
+      submissionData.append("cropTypes", JSON.stringify(formData.cropTypes));
 
       // Add document files
       Object.entries(formData.documents).forEach(([docType, file]) => {

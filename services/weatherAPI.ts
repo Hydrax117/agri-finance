@@ -54,6 +54,9 @@ function mockWeatherForecast(location: string): WeatherForecast {
   }
 
   return {
+    id: Math.floor(Math.random() * 1000).toString(), // Mock ID
+    createdAt: new Date(), // Mock createdAt
+    updatedAt: new Date(), // Mock updatedAt
     location,
     currentCondition: randomCondition,
     temperature: temp,

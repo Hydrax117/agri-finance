@@ -21,7 +21,7 @@ export default function LoanCard({ loan }: LoanCardProps) {
   };
 
   // Calculate days remaining or overdue
-  const calculateDaysRemaining = (dueDate: string) => {
+  const calculateDaysRemaining = (dueDate: Date) => {
     const due = new Date(dueDate);
     const today = new Date();
     const diffTime = due.getTime() - today.getTime();
@@ -81,13 +81,17 @@ export default function LoanCard({ loan }: LoanCardProps) {
           <div>
             <p className="text-sm text-gray-500">Disbursed On</p>
             <p className="font-semibold">
-              {new Date(loan.disbursementDate).toLocaleDateString()}
+              {loan.disbursementDate
+                ? new Date(loan.disbursementDate).toLocaleDateString()
+                : "N/A"}
             </p>
           </div>
           <div>
             <p className="text-sm text-gray-500">Next Payment</p>
             <p className="font-semibold">
-              {new Date(loan.nextPaymentDate).toLocaleDateString()}
+              {loan.nextPaymentDate
+                ? new Date(loan.nextPaymentDate).toLocaleDateString()
+                : "N/A"}
             </p>
           </div>
         </div>
@@ -117,7 +121,9 @@ export default function LoanCard({ loan }: LoanCardProps) {
                 : "text-gray-600"
             }
           >
-            {calculateDaysRemaining(loan.nextPaymentDate)}
+            {loan.nextPaymentDate
+              ? calculateDaysRemaining(new Date(loan.nextPaymentDate))
+              : "N/A"}
           </span>
         </div>
 

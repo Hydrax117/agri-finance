@@ -6,21 +6,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-model User {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  password      String
-  name          String?
-  role          UserRole
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
-  farmer        Farmer?
-  lender        Lender?
-  admin         Admin?
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum UserRole {
@@ -29,87 +17,258 @@ enum UserRole {
   ADMIN
 }
 
-model Farmer {
-  id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  farmSize        Float?
-  location        String?
-  cropTypes       String[]
-  creditScore     Float?
-  loanApplications LoanApplication[]
-  transactions    Transaction[]
+enum KYCStatus {
+  PENDING
+  SUBMITTED
+  VERIFIED
+  REJECTED
 }
 
-model Lender {
-  id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  kycVerified     Boolean   @default(false)
-  investments     Investment[]
-}
-
-model Admin {
-  id              String    @id @default(cuid())
-  userId          String    @unique
-  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  permissions     String[]
-}
-
-model LoanApplication {
-  id              String        @id @default(cuid())
-  farmerId        String
-  farmer          Farmer        @relation(fields: [farmerId], references: [id])
-  amount          Float
-  purpose         String
-  duration        Int           // In months
-  interestRate    Float?
-  status          LoanStatus    @default(PENDING)
-  creditScore     Float?
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-  investments     Investment[]
+model User {
+  id            String        @id @default(uuid())
+  email         String        @unique
+  password      String
+  name          String
+  role          UserRole
+  phone         String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  kycStatus     KYCStatus     @default(PENDING)
+  isActive      Boolean       @default(true)
+  
+  // Farmer specific fields
+  farmSize              Float?
+  farmLocation          String?
+  crops                 String[]
+  farmingExperience     Int?
+  creditScore           Float?
+  lastCreditScoreUpdate DateTime?
+  
+  // Lender specific fields
+  companyName               String?
+  companyRegistrationNumber String?
+  totalInvestment           Float?      @default(0)
+  activeLoans               Int?        @default(0)
+  
+  // Admin specific fields
+  department               String?
+  
+  // Relations
+  loans              Loan[]          @relation("FarmerLoans")
+  fundedLoans        Loan[]          @relation("LenderLoans")
+  transactions       Transaction[]
+  notifications      Notification[]
+  documents          Document[]
+   @@index([email])
+  @@index([role])
 }
 
 enum LoanStatus {
+  DRAFT
   PENDING
+  UNDER_REVIEW
   APPROVED
   FUNDED
   REJECTED
-  ACTIVE
+  REPAYING
   COMPLETED
   DEFAULTED
 }
 
-model Investment {
-  id                String          @id @default(cuid())
-  lenderId          String
-  lender            Lender          @relation(fields: [lenderId], references: [id])
-  loanApplicationId String
-  loanApplication   LoanApplication @relation(fields: [loanApplicationId], references: [id])
-  amount            Float
-  date              DateTime        @default(now())
-  status            InvestmentStatus @default(ACTIVE)
+enum LoanPurpose {
+  SEEDS
+  FERTILIZER
+  EQUIPMENT
+  IRRIGATION
+  LABOR
+  LAND_LEASE
+  STORAGE
+  OTHER
 }
 
-enum InvestmentStatus {
-  ACTIVE
-  COMPLETED
-  DEFAULTED
-}
-
-model Transaction {
-  id              String          @id @default(cuid())
+model Loan {
+  id              String      @id @default(uuid())
   farmerId        String
-  farmer          Farmer          @relation(fields: [farmerId], references: [id])
+  lenderId        String?
   amount          Float
-  type            TransactionType
-  date            DateTime        @default(now())
+  term            Int         // In months
+  interestRate    Float
+  purpose         LoanPurpose
   description     String?
+  status          LoanStatus  @default(DRAFT)
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  approvedAt      DateTime?
+  fundedAt        DateTime?
+  completedAt     DateTime?
+  collateral      String?
+  expectedYield   Float?
+  cropType        String?
+  aiRiskScore     Float?
+  weatherRiskFactor Float?
+  
+  // Relations
+  farmer          User            @relation("FarmerLoans", fields: [farmerId], references: [id])
+  lender          User?           @relation("LenderLoans", fields: [lenderId], references: [id])
+  transactions    Transaction[]
+  repayments      LoanRepayment[]
+  notifications   Notification[]
+  documents       Document[]
+  
+  @@index([farmerId])
+  @@index([lenderId])
+  @@index([status])
+}
+
+model LoanRepayment {
+  id              String      @id @default(uuid())
+  loanId          String
+  amount          Float
+  dueDate         DateTime
+  paidAmount      Float       @default(0)
+  paidDate        DateTime?
+  status          String      @default("PENDING") // PENDING, PAID, OVERDUE
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+  
+  // Relations
+  loan            Loan        @relation(fields: [loanId], references: [id])
+  
+  @@index([loanId])
+  @@index([dueDate])
+  @@index([status])
 }
 
 enum TransactionType {
   LOAN_DISBURSEMENT
-  REPAYMENT
+  LOAN_REPAYMENT
+  INVESTMENT
+  WITHDRAWAL
   FEE
+}
+
+enum TransactionStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+model Transaction {
+  id              String            @id @default(uuid())
+  amount          Float
+  type            TransactionType
+  status          TransactionStatus @default(PENDING)
+  userId          String
+  loanId          String?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  description     String?
+  paymentMethod   String?
+  reference       String?
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id])
+  loan            Loan?             @relation(fields: [loanId], references: [id])
+  
+  @@index([userId])
+  @@index([loanId])
+  @@index([type])
+  @@index([status])
+}
+
+enum NotificationType {
+  LOAN_STATUS_CHANGE
+  PAYMENT_DUE
+  PAYMENT_RECEIVED
+  KYC_STATUS_CHANGE
+  SYSTEM
+}
+
+model Notification {
+  id              String            @id @default(uuid())
+  userId          String
+  type            NotificationType
+  message         String
+  isRead          Boolean           @default(false)
+  createdAt       DateTime          @default(now())
+  loanId          String?
+  actionUrl       String?
+  
+  // Relations
+  user            User              @relation(fields: [userId], references: [id])
+  loan            Loan?             @relation(fields: [loanId], references: [id])
+  
+  @@index([userId])
+  @@index([isRead])
+  @@index([createdAt])
+}
+
+enum DocumentType {
+  ID_PROOF
+  ADDRESS_PROOF
+  LAND_OWNERSHIP
+  BANK_STATEMENT
+  CROP_PLAN
+  LOAN_AGREEMENT
+  OTHER
+}
+
+model Document {
+  id              String        @id @default(uuid())
+  userId          String
+  type            DocumentType
+  fileName        String
+  fileUrl         String
+  uploadedAt      DateTime      @default(now())
+  expiryDate      DateTime?
+  isVerified      Boolean       @default(false)
+  loanId          String?
+  
+  // Relations
+  user            User          @relation(fields: [userId], references: [id])
+  loan            Loan?         @relation(fields: [loanId], references: [id])
+  
+  @@index([userId])
+  @@index([loanId])
+  @@index([type])
+}
+
+model WeatherData {
+  id              String    @id @default(uuid())
+  location        String
+  date            DateTime
+  temperature     Float
+  rainfall        Float
+  humidity        Float
+  windSpeed       Float
+  notes           String?
+  createdAt       DateTime  @default(now())
+  
+  @@index([location])
+  @@index([date])
+}
+
+model CreditScoreHistory {
+  id              String    @id @default(uuid())
+  userId          String
+  score           Float
+  calculatedAt    DateTime  @default(now())
+  factors         Json      // Stores factors that influenced the score
+  
+  @@index([userId])
+  @@index([calculatedAt])
+}
+
+model Settings {
+  id              String    @id @default(uuid())
+  key             String    @unique
+  value           String
+  description     String?
+  updatedAt       DateTime  @updatedAt
+  updatedBy       String?
+}
+ 
+ 
+
+  @@index([userId])
 }

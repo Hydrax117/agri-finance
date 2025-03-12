@@ -1,38 +1,50 @@
 // src/types/user.ts
-export interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: "farmer" | "lender" | "admin";
-  creditScore?: number;
-  location?: string;
+
+export enum UserRole {
+  FARMER = "FARMER",
+  LENDER = "LENDER",
+  ADMIN = "ADMIN",
 }
 
-export interface FarmerProfile extends User {
+export enum KYCStatus {
+  PENDING = "PENDING",
+  SUBMITTED = "SUBMITTED",
+  VERIFIED = "VERIFIED",
+  REJECTED = "REJECTED",
+}
+
+export interface User {
+  id: string;
+  email: string;
+  password: string; // Hashed
+  name: string;
+  role: UserRole;
   phone?: string;
-  address?: string;
-  city?: string;
-  state?: string;
-  zipCode?: string;
-  farmName?: string;
+  createdAt: Date;
+  updatedAt: Date;
+  kycStatus: KYCStatus;
+  isActive: boolean;
+}
+
+export interface Farmer extends User {
+  role: UserRole.FARMER;
   farmSize?: number;
-  farmType?: string[];
-  cropTypes?: string[];
+  farmLocation?: string;
+  crops?: string[];
   farmingExperience?: number;
-  isVerified: boolean;
-  createdAt: string;
-  updatedAt: string;
-  bankDetails?: {
-    accountName: string;
-    accountNumber: string;
-    bankName: string;
-    swiftCode?: string;
-  };
-  documents?: {
-    idVerified: boolean;
-    landVerified: boolean;
-    bankVerified: boolean;
-  };
-  profilePicture?: string;
+  creditScore?: number;
+  lastCreditScoreUpdate?: Date;
+}
+
+export interface Lender extends User {
+  role: UserRole.LENDER;
+  companyName?: string;
+  companyRegistrationNumber?: string;
+  totalInvestment?: number;
+  activeLoans?: number;
+}
+
+export interface Admin extends User {
+  role: UserRole.ADMIN;
+  department?: string;
 }
